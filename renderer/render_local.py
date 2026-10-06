@@ -13,11 +13,37 @@ from scenes import generate_scenes
 W, H, FPS = 1080, 1920, 30
 
 
+def probe(path: Path) -> dict:
+    raw = run(["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)])
+    return json.loads(raw)
+
+
 def verify_audible(path: Path) -> None:
     result = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(path), "-map", "0:a:0", "-af", "volumedetect", "-f", "null", "-"], text=True, capture_output=True, check=True)
     match = re.search(r"mean_volume: *(-?inf|[-0-9.]+) dB", result.stderr)
     if not match or match.group(1) == "-inf" or float(match.group(1)) < -45:
         raise ValueError("Rendered audio is silent or too quiet")
+
+
+def verify_mp4(path: Path, narration_seconds: float) -> dict:
+    info = probe(path)
+    streams = info.get("streams", [])
+    video = next((stream for stream in streams if stream.get("codec_type") == "video"), None)
+    audio = next((stream for stream in streams if stream.get("codec_type") == "audio"), None)
+    if not video or not audio:
+        raise ValueError("MP4 must contain both video and audio streams")
+    if (video.get("codec_name"), video.get("width"), video.get("height")) != ("h264", W, H):
+        raise ValueError("MP4 video must be H.264 at 1080x1920")
+    if audio.get("codec_name") != "aac":
+        raise ValueError("MP4 audio must be AAC")
+    rate = video.get("r_frame_rate", "0/1").split("/")
+    fps = float(rate[0]) / float(rate[1])
+    if not 25 <= fps <= 30:
+        raise ValueError("MP4 frame rate must be between 25 and 30 fps")
+    duration = float(info.get("format", {}).get("duration", 0))
+    if duration < narration_seconds + 1.4:
+        raise ValueError("MP4 is shorter than the complete narration and closing pause")
+    return {"duration_with_end_card": round(duration, 2), "video_codec": "h264", "audio_codec": "aac", "resolution": "1080x1920", "fps": round(fps, 2)}
 
 
 def main() -> None:
@@ -61,20 +87,25 @@ def main() -> None:
             line = word
         else:
             line = (line + " " + word).strip()
-    if line: lines.append(line)
-    title_file.write_text("\n".join(lines[:3]), encoding="utf-8")
+    if line:
+        lines.append(line)
+    if not lines:
+        raise ValueError("Reel title is empty")
+    title_file.write_text("\n".join(lines), encoding="utf-8")
+    title_size = 64 if len(lines) <= 2 else 54 if len(lines) == 3 else 46 if len(lines) == 4 else 40
     font = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     scene_seconds = seconds / len(scenes) + 0.45
     overlap = 0.45
+    outro_seconds = 1.8
     cmd, filters, labels = ["ffmpeg", "-hide_banner", "-y"], [], []
     for src in scenes:
         cmd += ["-stream_loop", "-1", "-i", str(src)]
     audio_index = len(scenes)
     cmd += ["-i", str(audio)]
     for i in range(len(scenes)):
-        x = "iw/2-(iw/zoom/2)+sin(on/90)*24" if i % 2 == 0 else "iw/2-(iw/zoom/2)-sin(on/90)*24"
-        y = "ih/2-(ih/zoom/2)+cos(on/110)*18"
-        filters.append(f"[{i}:v]scale=1200:2134:force_original_aspect_ratio=increase,crop=1200:2134,fps={FPS},trim=duration={scene_seconds:.3f},setpts=PTS-STARTPTS,zoompan=z='min(zoom+0.0005,1.11)':x='{x}':y='{y}':d=1:s={W}x{H}:fps={FPS},setsar=1,format=yuv420p[v{i}]")
+        x = "iw/2-(iw/zoom/2)+sin(on/65)*36" if i % 2 == 0 else "iw/2-(iw/zoom/2)-sin(on/65)*36"
+        y = "ih/2-(ih/zoom/2)+cos(on/80)*28"
+        filters.append(f"[{i}:v]scale=1200:2134:force_original_aspect_ratio=increase,crop=1200:2134,fps={FPS},trim=duration={scene_seconds:.3f},setpts=PTS-STARTPTS,zoompan=z='min(zoom+0.0005,1.12)':x='{x}':y='{y}':d=1:s={W}x{H}:fps={FPS},setsar=1,format=yuv420p[v{i}]")
         labels.append(f"[v{i}]")
     current, elapsed = labels[0], scene_seconds
     for i in range(1, len(labels)):
@@ -84,16 +115,19 @@ def main() -> None:
     filters.append(f"{current}trim=duration={seconds:.3f},setpts=PTS-STARTPTS[body]")
     srt_path = str(subtitles).replace(":", "\\:").replace("'", "\\'")
     title_path = str(title_file).replace(":", "\\:").replace("'", "\\'")
-    style = "FontName=DejaVu Sans,FontSize=48,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H88000000,BorderStyle=3,Outline=1,Shadow=0,Alignment=2,MarginL=95,MarginR=95,MarginV=380"
-    filters.append(f"[body]drawtext=fontfile='{font}':textfile='{title_path}':fontcolor=white:fontsize=66:line_spacing=12:x=(w-text_w)/2:y=h*0.30:box=1:boxcolor=0x101820@0.88:boxborderw=34:enable='lt(t,2.7)',subtitles=filename='{srt_path}':force_style='{style}'[captioned]")
+    style = "FontName=DejaVu Sans,FontSize=46,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H88000000,BorderStyle=3,Outline=1,Shadow=0,Alignment=2,MarginL=95,MarginR=95,MarginV=500"
+    title_filter = f"drawtext=fontfile='{font}':textfile='{title_path}':fontcolor=white:fontsize={title_size}:line_spacing=8:x=(w-text_w)/2:y=h*0.20:box=1:boxcolor=0x091723@0.78:boxborderw=24:enable='lt(t,2.7)'"
+    filters.append(f"[body]{title_filter},subtitles=filename='{srt_path}':force_style='{style}'[captioned]")
     end_card = f"drawtext=fontfile='{font}':text='LexFis — юридическая помощь':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=h/2-35:box=1:boxcolor=0x101820@0.78:boxborderw=28,drawtext=fontfile='{font}':text='lexfis.ru':fontcolor=0xF3C969:fontsize=54:x=(w-text_w)/2:y=h/2+70"
-    filters += [f"color=c=0x17212B:s={W}x{H}:r={FPS}:d=2.5[outrobase]", f"[outrobase]{end_card}[outro]", "[captioned][outro]concat=n=2:v=1:a=0,format=yuv420p[vout]", f"[{audio_index}:a]aresample=48000,loudnorm=I=-16:TP=-1.5:LRA=11,apad,atrim=duration={seconds+2.5:.3f},asetpts=PTS-STARTPTS[aout]"]
-    cmd += ["-filter_complex", ";".join(filters), "-map", "[vout]", "-map", "[aout]", "-t", f"{seconds+2.5:.3f}", "-r", str(FPS), "-c:v", "libx264", "-preset", "medium", "-b:v", "800k", "-maxrate", "1000k", "-bufsize", "2000k", "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(args.output)]
+    filters += [f"color=c=0x17212B:s={W}x{H}:r={FPS}:d={outro_seconds}[outrobase]", f"[outrobase]{end_card}[outro]", "[captioned][outro]concat=n=2:v=1:a=0,format=yuv420p[vout]", f"[{audio_index}:a]aresample=48000,loudnorm=I=-16:TP=-1.5:LRA=11,apad,atrim=duration={seconds+outro_seconds:.3f},asetpts=PTS-STARTPTS[aout]"]
+    cmd += ["-filter_complex", ";".join(filters), "-map", "[vout]", "-map", "[aout]", "-t", f"{seconds+outro_seconds:.3f}", "-r", str(FPS), "-c:v", "libx264", "-preset", "medium", "-b:v", "800k", "-maxrate", "1000k", "-bufsize", "2000k", "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(args.output)]
     run(cmd)
     verify_audible(args.output)
+    metadata = verify_mp4(args.output, seconds)
     if args.output.stat().st_size > 4_800_000:
         raise ValueError("MP4 exceeds the 4.8 MB Make webhook limit")
-    print(json.dumps({"duration_with_end_card": round(seconds + 2.5, 2), "narration_seconds": round(seconds, 2), "scene_count": len(scenes), "audio": "audible", "bytes": args.output.stat().st_size}, ensure_ascii=False))
+    metadata.update({"narration_seconds": round(seconds, 2), "scene_count": len(scenes), "audio": "audible", "bytes": args.output.stat().st_size})
+    print(json.dumps(metadata, ensure_ascii=False))
 
 
 if __name__ == "__main__":
