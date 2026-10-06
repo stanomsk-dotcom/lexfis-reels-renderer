@@ -1,0 +1,67 @@
+name: Render LexFis Reel
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: Reel title in Russian
+        required: true
+        type: string
+      voiceover:
+        description: Full Russian voiceover script
+        required: true
+        type: string
+      caption:
+        description: Separate publication description
+        required: true
+        type: string
+      media_json:
+        description: JSON array of 4-6 public image/video URLs
+        required: true
+        type: string
+      audio_url:
+        description: Optional public Russian narration audio URL
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: lexfis-reel-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install open-source rendering tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ffmpeg espeak-ng fonts-dejavu-core
+      - name: Prepare input
+        env:
+          TITLE: ${{ inputs.title }}
+          VOICEOVER: ${{ inputs.voiceover }}
+          CAPTION: ${{ inputs.caption }}
+          MEDIA_JSON: ${{ inputs.media_json }}
+          AUDIO_URL: ${{ inputs.audio_url }}
+        run: python renderer/build_input.py
+      - name: Render MP4
+        run: python renderer/render.py --input input.json --output output/lexfis-reel.mp4
+      - name: Verify MP4 streams and dimensions
+        run: |
+          ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate -of json output/lexfis-reel.mp4
+          ffprobe -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate -of json output/lexfis-reel.mp4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lexfis-reel-${{ github.run_number }}
+          path: output/lexfis-reel.mp4
+          if-no-files-found: error
+          retention-days: 7
