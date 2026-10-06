@@ -1,17 +1,31 @@
 # LexFis Reels Renderer
 
-A vertical Reel renderer using open-source FFmpeg, Python, and local Russian espeak-ng speech synthesis when no audio file is supplied. It does not use a paid video-rendering API.
+Free video rendering in GitHub Actions with open-source FFmpeg and local Russian speech synthesis. No paid video API, FFmpeg Micro, Gemini Video, JSON2Video, or Instagram publishing is used.
 
-## Input
+## What it renders
 
-Create input.json with title, full voiceover, publication caption, four to six public image/video URLs in media[], and an optional audio_url. Run `python renderer/render.py --input input.json --output output/lexfis-reel.mp4`. If audio_url is empty, the full voiceover is synthesized locally in Russian.
+- Vertical MP4 at 1080×1920, H.264 video, AAC audio, 30 fps, optimized for Telegram and iPhone playback.
+- The full Russian voiceover, locally synthesized with eSpeak NG when no audio file is supplied. The video is never shortened to fit a target length; the closing card follows the final spoken word.
+- Four to six varied, topic-colored visual scenes, slow zoom/pan, and soft transitions when no media URLs are supplied. The visual prompt selects the subject palette. These are motion graphics; supply four to six public image/video URLs in media[] for documentary footage.
+- A large Russian opening title for the first 2.7 seconds, readable Russian captions timed over the narration, and a closing card: LexFis — юридическая помощь · lexfis.ru.
+- Automated checks for audible audio, H.264/AAC streams, frame size, frame rate, duration, and file size.
 
-Output: portrait 1080x1920, H.264/AAC, 30 fps, animated scenes, Russian subtitles, title opening, and LexFis end card. Narration is never cut off to fit a duration target.
+## Inputs
 
-## GitHub Actions
+input.json contains title, the entire voiceover, a publication caption, optional visual_prompt, an optional array of four to six public URLs in media[], and optional audio_url.
 
-Choose Actions > Render LexFis Reel > Run workflow. The finished MP4 is saved as a run artifact for seven days. No paid GitHub feature is configured.
+Run locally in an environment with FFmpeg, eSpeak NG, DejaVu fonts, and librsvg:
 
-## Integration status
+    python renderer/render_local.py --input input.json --output output/lexfis-reel.mp4
 
-The workflow renders an MP4 artifact. Make dispatch and Telegram delivery still require configuration. Keep the existing FFmpeg Micro, Gemini, JSON2Video, and image-generation chain disabled. Automatic Instagram publishing is not included.
+If audio_url is empty, the complete Russian narration is synthesized locally.
+
+## GitHub Actions and Telegram
+
+Open Actions → Render LexFis Reel → Run workflow and enter the Russian title, full voiceover, publication description, and (optionally) visual prompt, media URLs, and audio URL. The action renders the MP4, verifies its audio/video streams, and sends the finished MP4 plus title and publication description to the configured Make webhook for Telegram delivery.
+
+The daily Make scenario invokes the same workflow_dispatch endpoint. Keep it disabled during testing and turn it on only after the test Reel arrives in Telegram and its picture and sound have been reviewed.
+
+## Cost and publishing
+
+The repository uses public GitHub Actions and open-source packages. It does not configure a paid GitHub feature, video-rendering subscription, or automatic Instagram/TikTok publishing. The former paid rendering routes are not in this workflow.
