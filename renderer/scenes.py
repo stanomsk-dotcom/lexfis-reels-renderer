@@ -47,14 +47,13 @@ def _art(index: int, gold: str) -> str:
 
 
 def _svg(index: int, total: int, theme: tuple[str, str, str, str]) -> str:
-    bg, glow, gold, label = theme
+    bg, glow, gold, _label = theme
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
 <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="{bg}"/><stop offset="1" stop-color="{glow}"/></linearGradient><radialGradient id="orb"><stop stop-color="{gold}" stop-opacity=".3"/><stop offset="1" stop-color="{gold}" stop-opacity="0"/></radialGradient></defs>
 <rect width="1080" height="1920" fill="url(#bg)"/><circle cx="840" cy="700" r="520" fill="url(#orb)"/><circle cx="840" cy="700" r="330" fill="none" stroke="white" stroke-opacity=".06" stroke-width="2"/><circle cx="840" cy="700" r="420" fill="none" stroke="white" stroke-opacity=".045" stroke-width="2"/>
 <path d="M0 1250 Q480 1060 1080 1260 V1920 H0Z" fill="#050B13" opacity=".23"/>
 <text x="82" y="118" fill="white" font-family="DejaVu Sans" font-size="34" font-weight="700" letter-spacing="7">LEXFIS</text><text x="84" y="174" fill="{gold}" font-family="DejaVu Sans" font-size="22" font-weight="700" letter-spacing="2">ПРАВО · ПРАКТИКА · РЕШЕНИЯ</text>
-<g transform="translate(0 120)">{_art(index, gold)}</g>
-<rect x="84" y="1190" width="912" height="2" fill="white" opacity=".18"/><text x="86" y="1260" fill="{gold}" font-family="DejaVu Sans" font-size="27" font-weight="700" letter-spacing="2">{label}</text><text x="86" y="1320" fill="white" opacity=".72" font-family="DejaVu Sans" font-size="23">ПРАКТИЧЕСКИЙ РАЗБОР · СЦЕНА {index:02}</text>
+<g transform="translate(0 330)">{_art(index, gold)}</g>
 <rect x="86" y="1792" width="908" height="5" rx="2" fill="white" opacity=".22"/><rect x="86" y="1792" width="{908 * index / total:.1f}" height="5" rx="2" fill="{gold}"/><text x="86" y="1850" fill="white" opacity=".72" font-family="DejaVu Sans" font-size="24">LEXFIS.RU</text><text x="994" y="1850" fill="white" opacity=".72" font-family="DejaVu Sans" font-size="24" text-anchor="end">{index:02}/{total:02}</text>
 </svg>'''
 
