@@ -62,7 +62,7 @@ jobs:
           AUDIO_URL: ${{ inputs.audio_url }}
         run: python renderer/build_input.py
       - name: Render MP4
-        run: python renderer/render.py --input input.json --output output/lexfis-reel.mp4
+        run: python renderer/render_local.py --input input.json --output output/lexfis-reel.mp4
       - name: Verify MP4 streams and dimensions
         run: |
           ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate -of json output/lexfis-reel.mp4
