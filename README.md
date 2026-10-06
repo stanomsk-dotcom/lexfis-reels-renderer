@@ -6,7 +6,7 @@ Free video rendering in GitHub Actions with open-source FFmpeg and local Russian
 
 - Vertical MP4 at 1080×1920, H.264 video, AAC audio, 30 fps, optimized for Telegram and iPhone playback.
 - The full Russian voiceover, locally synthesized with eSpeak NG when no audio file is supplied. The video is never shortened to fit a target length; the closing card follows the final spoken word.
-- Four to six varied, topic-colored visual scenes, slow zoom/pan, and soft transitions when no media URLs are supplied. The visual prompt selects the subject palette. These are motion graphics; supply four to six public image/video URLs in media[] for documentary footage.
+- Four to six varied, topic-colored visual scenes, slow zoom/pan, and soft transitions when no media URLs are supplied. Each short direction from the visual prompt selects an appropriate scene illustration. These are motion graphics; supply four to six public image/video URLs in media[] for documentary footage.
 - A large Russian opening title for the first 2.7 seconds, readable Russian captions timed over the narration, and a closing card: LexFis — юридическая помощь · lexfis.ru.
 - Automated checks for audible audio, H.264/AAC streams, frame size, frame rate, duration, and file size.
 
