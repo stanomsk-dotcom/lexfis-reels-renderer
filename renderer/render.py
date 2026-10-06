@@ -83,7 +83,7 @@ def make_subtitles(voiceover: str, audio_seconds: float, output: Path) -> None:
         start = audio_seconds * cursor / total
         cursor += weight
         end = audio_seconds * cursor / total
-        text = "\\N".join(wrap_words(" ".join(group)))
+        text = "\n".join(wrap_words(" ".join(group)))
         text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         lines.extend([str(i), f"{srt_time(start)} --> {srt_time(max(start + 0.3, end))}", text, ""])
     output.write_text("\n".join(lines), encoding="utf-8")
