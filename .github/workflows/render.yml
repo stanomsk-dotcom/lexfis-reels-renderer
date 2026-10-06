@@ -45,6 +45,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends ffmpeg espeak-ng fonts-dejavu-core
+      - name: Test subtitle timing
+        run: python3 -m unittest discover -s renderer -v
       - name: Prepare input
         env:
           TITLE: ${{ inputs.title }}
